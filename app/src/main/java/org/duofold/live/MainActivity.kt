@@ -26,12 +26,12 @@ import kotlinx.coroutines.*
 import kotlin.math.roundToInt
 
 class MainActivity:ComponentActivity(){
- private val shizukuPermission=rikka.shizuku.Shizuku.OnRequestPermissionResultListener { code,result ->
+ private val shizukuPermission=org.duofold.live.root.Shizuku.OnRequestPermissionResultListener { code,result ->
   if(code==42)runOnUiThread {
-   android.widget.Toast.makeText(this,if(result==0)"Shizuku authorized" else "Shizuku authorization denied. Enable Duo in Shizuku → Authorized applications.",android.widget.Toast.LENGTH_LONG).show()
+   android.widget.Toast.makeText(this,if(result==0)"Root granted" else "Root was denied. Allow Duo Fold Live in KernelSU Manager → Superuser.",android.widget.Toast.LENGTH_LONG).show()
   }
  }
- override fun onDestroy(){rikka.shizuku.Shizuku.removeRequestPermissionResultListener(shizukuPermission);super.onDestroy()}
+ override fun onDestroy(){org.duofold.live.root.Shizuku.removeRequestPermissionResultListener(shizukuPermission);super.onDestroy()}
 
  private fun startBackground(){
   if(checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),43)
@@ -40,7 +40,7 @@ class MainActivity:ComponentActivity(){
  override fun onCreate(savedInstanceState:Bundle?){
   super.onCreate(savedInstanceState)
   if(intent.action=="org.duofold.live.SUPPORT"){intent.action=null;SupportPrompts.open(this)}
-  rikka.shizuku.Shizuku.addRequestPermissionResultListener(shizukuPermission)
+  org.duofold.live.root.Shizuku.addRequestPermissionResultListener(shizukuPermission)
   if(FirstRun.required(this)){startActivity(Intent(this,SetupActivity::class.java));finish();return}
   setContent{
    MaterialTheme(colorScheme=darkColorScheme(primary=Color(0xff9dc4ff),secondary=Color(0xffa8d5c2),background=Color(0xff080a0e),surface=Color(0xff171a20),surfaceVariant=Color(0xff242830))){
@@ -102,14 +102,14 @@ class MainActivity:ComponentActivity(){
        Text("Duo Fold Live",style=MaterialTheme.typography.headlineLarge)
        Text("Make every fold feel fluid.",style=MaterialTheme.typography.bodyLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)
        Toggle("Enable animation",enabled){
-        if(it && (!Settings.canDrawOverlays(this@MainActivity) || StandaloneService.instance==null)){
+        if(it && !org.duofold.live.root.Shizuku.pingBinder()){
          startActivity(Intent(this@MainActivity,SetupActivity::class.java).putExtra("repair",true))
         }else{enabled=it;booleanSetting("enabled",it)}
        }
        Text(if(enabled){if(LiveAngles.fresh()) "Connected · ready to fold" else LiveAngles.status} else "Off · your phone uses its normal display behavior",style=MaterialTheme.typography.bodySmall)
       }
       if(enabled && status.startsWith("Waiting for fresh wallpaper angles")){
-       SettingsCard("No live hinge angles yet","Shizuku is connected, but Samsung’s wallpaper has not supplied fresh angles."){
+       SettingsCard("No live hinge angles yet","Root is connected, but Samsung’s wallpaper has not supplied fresh angles."){
         Text("Move the hinge with the phone unlocked. If this remains, repair the required wallpaper setup. A custom photo alone does not provide angles.")
         Button(onClick={startActivity(Intent(this@MainActivity,SetupActivity::class.java).putExtra("repair",true))}){Text("Repair wallpaper & check permissions")}
         OutlinedButton(onClick={ShizukuAccess.show(this@MainActivity,ShizukuAccess.report(this@MainActivity))}){Text("Connection report")}
@@ -163,15 +163,13 @@ class MainActivity:ComponentActivity(){
        Button(onClick={startActivity(Intent(this@MainActivity,org.duofold.live.wallpaperlayer.WallpaperActivity::class.java))}){Text("Choose & manage custom wallpaper")}
        Text("Choose one photo for both screens and preview each crop. Your photo and enabled choice stay saved across updates.",style=MaterialTheme.typography.bodySmall)
       }
-      SettingsCard("Connection & setup","Shizuku and accessibility keep the effect running in the background."){
+      SettingsCard("Connection & setup","Root keeps the effect running in the background. No overlay permission or accessibility service is used."){
        TextButton(onClick={setup=!setup}){Text(if(setup)"Hide setup" else "Show setup")}
        if(setup){
         ShizukuPlusDownload()
         OutlinedButton(onClick={startActivity(Intent(this@MainActivity,SetupActivity::class.java).putExtra("repair",true))}){Text("Repair required wallpaper setup")}
         Button(onClick={val result=ShizukuAccess.request(this@MainActivity,42); if(result.startsWith("Permission requested"))android.widget.Toast.makeText(this@MainActivity,result,android.widget.Toast.LENGTH_LONG).show() else ShizukuAccess.show(this@MainActivity,result)}){Text("Authorize Shizuku")}
         OutlinedButton(onClick={ShizukuAccess.show(this@MainActivity,ShizukuAccess.report(this@MainActivity))}){Text("Connection report")}
-        OutlinedButton(onClick={startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:$packageName")))}){Text("Allow overlays")}
-        OutlinedButton(onClick={startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))}){Text("Enable accessibility")}
         OutlinedButton(onClick={restart()}){Text("Reconnect animation")}
         Text("Keep Samsung’s interactive wallpaper on both screens. Stop any older fold helper. If accessibility is blocked: App info → ⋮ → Allow restricted settings.",style=MaterialTheme.typography.bodySmall)
         OutlinedButton(onClick={startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:$packageName")))}){Text("App & battery settings")}
@@ -261,7 +259,7 @@ class MainActivity:ComponentActivity(){
         TextButton(onClick={closedThreshold=2f;prefs.edit().putFloat("closed_threshold",2f).apply();restart()}){Text("Reset to 2°")}
         HorizontalDivider()
         Text("Auto-rotate recovery",style=MaterialTheme.typography.titleMedium)
-        Text("For stuck rotation: turn fold animation off, then repair. This enables auto-rotate for both postures and restores the default rotation policy. Requires connected Shizuku.",style=MaterialTheme.typography.bodySmall)
+        Text("For stuck rotation: turn fold animation off, then repair. This enables auto-rotate for both postures and restores the default rotation policy. Requires root access.",style=MaterialTheme.typography.bodySmall)
         OutlinedButton(enabled=!enabled && !repairingRotation,onClick={
          repairingRotation=true;rotationRepair="Releasing rotation overrides…"
          FoldSettingsClient.request(this@MainActivity,"rotation_repair",null){result->
@@ -273,7 +271,7 @@ class MainActivity:ComponentActivity(){
         if(rotationRepair.isNotEmpty())Text(rotationRepair,style=MaterialTheme.typography.bodySmall)
         HorizontalDivider()
         Text("Keep cover awake on close",style=MaterialTheme.typography.titleMedium)
-        Text("Always ON. Saved across updates and checked in the background, including when the animation is off. Reconnects automatically when authorized Shizuku becomes available.",style=MaterialTheme.typography.bodySmall)
+        Text("Always ON. Saved across updates and checked in the background, including when the animation is off. Reconnects automatically when root becomes available.",style=MaterialTheme.typography.bodySmall)
         Text("Phone still locks when folded? Open Samsung Settings, search for “Lock when folded”, and turn it OFF. Return to Home and fold again to test. This Samsung setting can override Keep Awake.",style=MaterialTheme.typography.bodySmall)
         OutlinedButton(onClick={FoldAwakeDefault.reconnect();FoldAwakeDefault.tick(this@MainActivity);startBackground()}){Text("Recheck keep-awake now")}
         TextButton(onClick={developer=!developer}){Text("☰  Developer settings")}
@@ -296,6 +294,12 @@ class MainActivity:ComponentActivity(){
         Text("For use with Dual-screen screenshot handoff OFF. Mirrors cover content without its animation. A frosted second copy is already visible on the left. At handoff, the same layout briefly holds, then fades into the inner content without a bright expansion. Screen-switch angles stay unchanged.",style=MaterialTheme.typography.bodySmall)
         Toggle("Dual-screen screenshot handoff",dual){dual=it;booleanSetting("dual",it)}
         Text("Cover preview is on by default; screenshot handoff is off. Debug changes the shading only.",style=MaterialTheme.typography.bodySmall)
+        var primaryMode by remember{mutableStateOf(prefs.getString("primary_mode","wm")?:"wm")}
+        OutlinedButton(onClick={val next=if(primaryMode=="wm")"free" else "wm";primaryMode=next;prefs.edit().putString("primary_mode",next).apply();restart()}){Text("Overlay renderer: $primaryMode")}
+        var glassFallback by remember{mutableStateOf(prefs.getString("glass_fallback","black")?:"black")}
+        OutlinedButton(onClick={val next=when(glassFallback){"black"->"soft";"soft"->"clear";else->"black"};glassFallback=next;prefs.edit().putString("glass_fallback",next).apply()}){Text("While the glass image loads: $glassFallback")}
+        Text("black = original dark fade, soft = lighter dark fade, clear = show the real screen until the glass image is ready (can shorten the black moment when switching panels; the effect then fades in a little later).",style=MaterialTheme.typography.bodySmall)
+        Text("wm (default): layer attached by the window manager; shows on both panels, touch passes through. free: fallback that shows on the active panel only. Escape if an overlay ever sticks: adb shell am force-stop org.duofold.live",style=MaterialTheme.typography.bodySmall)
         Text(GlassFrames.status,style=MaterialTheme.typography.bodySmall)
         Text(HandoffFrames.status,style=MaterialTheme.typography.bodySmall)
         OutlinedButton(onClick={startActivity(Intent(this@MainActivity,FoldProbeActivity::class.java))}){Text("Sensor & display diagnostics")}
@@ -308,7 +312,7 @@ class MainActivity:ComponentActivity(){
         }
 
        }
-       OutlinedButton(onClick={val report=StandaloneService.instance?.report()?:"Duo Fold Live: accessibility disconnected";getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Duo Fold Live",report));android.widget.Toast.makeText(this@MainActivity,"Report copied",android.widget.Toast.LENGTH_SHORT).show()}){Text("Copy status report")}
+       OutlinedButton(onClick={val report=StandaloneService.instance?.report()?:"Duo Fold Live: overlay host not started";getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Duo Fold Live",report));android.widget.Toast.makeText(this@MainActivity,"Report copied",android.widget.Toast.LENGTH_SHORT).show()}){Text("Copy status report")}
       }
       SettingsCard("Support Duo Fold Live","Free, independent, and built with care for your Fold."){
        Text("If Duo makes your phone more enjoyable, you can help support development with a donation. Every feature stays available either way.")
