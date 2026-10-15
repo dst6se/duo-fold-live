@@ -4,7 +4,7 @@ import android.content.*
 import android.os.*
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
-import rikka.shizuku.Shizuku
+import org.duofold.live.root.Shizuku
 
 /** One closing episode owns one warm connection; no settings writes or continuous wake loop. */
 internal class FoldWakeConnection(context:Context):AutoCloseable {
